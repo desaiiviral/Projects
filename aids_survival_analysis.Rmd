@@ -1,0 +1,193 @@
+---
+title: "Survival Analysis of AIDS"
+author: "Viral Desai, Fady Naeimm, Caleb Rovell"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+library('survival')
+library('MASS')
+library('GGally')
+library('leaps')
+library('date')
+attach(Aids2)
+Aids2['newstatus'] <- c(0)
+Aids2$newstatus <- ifelse(Aids2$status == 'A', 0, 1)
+Aids2['time'] = (Aids2$death - Aids2$diag)/365
+```
+
+## Introduction
+
+With an epidemic as deadly and as widespread as AIDS, it is important for us to understand the factors that significantly effect the survival rates of those effected. The data set of interest focuses on AIDS patients located in several states in Australia. The 2,843 patients were studied before July 1st, 1991 and we used the resulting data to analyze how different factors effect each person's survival probability. The data comes from: Dr P. J. Solomon and the Australian National Centre in HIV Epidemiology and Clinical Research. Our potential covariates of interest are: the state of origin (state), sex of the patient (sex), time elapsed from the time of diagnosis till death (time), and the way in which the AIDS was transmitted. The four states of origin include New South Wales (NSW), Queensland (QLD), Victoria (VIC), and other smaller areas in Australia (other). Types of transmissions include: male homosexual or bisexual contact (hs), a hs intravenous drug user (hsid), female or heterosexual male intravenous drug user (id), heterosexual contact (het), haemophilia or coagulation disorder (haem), receipt of blood components or tissue (blood), mother with or at risk of HIV infection (mother), and other or unknown transmissions (other). The sex variable is divided up amongst males and females, with 89 female observations and 2754 male observations. The time covariate was one that we created to get the time from diagnosis till their death.
+
+## Questions of Interest
+
+1. Is there siginificant evidence to say that men or women have a higher chance of surviving with AIDS? Can we find a     coefficient and confidence interval for the parameters? 
+
+2. Does the date of diagnosis affect survival probability?
+
+3. What is the best fitting model for this dataset?
+
+4. Is there a significant difference between hazard ratios based on sex, from start to diagnosis and diagnosis to death?
+
+## Survival Analysis Method
+
+1. In order to find if there is a difference in survival probabilities between sexes we will first plot a KM estimate to see how closely they appear. From that we will check the cox PH assumption using a log log plot so we can get a coxph model whose parameters we can estimate.
+
+2. We first split the data into two parts, first being patients diagnosed in the first half of the study, second being the patients diagnosed in the second half of the study. We then used a Kaplan-Meier on these two covariates to determine if there was an increase in survival probability of patients as time went on.
+
+3. We compared the full model containing every possible covariate to each combination of models with a different covariate removed each time. After, we used the likelihood ratio test to find the difference between the full model and each of the reduced models. Then we found the p-value for each LRT function. Based off of these p-values we determined which covariates were signifcant in order to find the best fitting model. 
+
+4. To find if there is a difference between hazard rates from start to diagnosis and diagnosis to death we will divide our aids dataset into two parts. We will call the first dataset episode 1 from start to daignosis and episode 2 from diagnosis to death. Then we will do a log likelihood test to see if its significant.
+
+## Standard Visualizations
+
+```{r, echo = T}
+E2 = length(diag[which(diag < 8401)])
+E3 = length(diag[which(diag >= 8401 & diag < 8766)])
+E4 = length(diag[which(diag >= 8766 & diag < 9132)])
+E5 = length(diag[which(diag >= 9132 & diag < 9497)])
+E6 = length(diag[which(diag >= 9497 & diag < 9862)])
+E7 = length(diag[which(diag >= 9862 & diag < 10227)])
+E8 = length(diag[which(diag >= 10227 & diag < 10593)])
+E9 = length(diag[which(diag >= 10593 & diag < 10958)])
+N0 = length(diag[which(diag >= 10958 & diag < 11323)])
+N1 = length(diag[which(diag >= 11323 & diag < 11688)])
+barplot(c(E2, E3, E4, E5, E6, E7, E8, E9, N0, N1), names.arg = c('1982', '1983', '1984', '1985', '1986', '1987', '1988', '1989', '1990', '1991'), col = 2, ylab = 'Number of Aids Diagnoses', xlab = 'Year of Diagnoses', main = 'Number of Aids Diagnoses Each Year')
+```
+
+This basic histogram tells us how our dataset is divided. Since our dataset is quite large but length of study is small, we just wanted to see if their was any trend to the number of people diagnosed each year.
+
+```{r cache = TRUE, echo = T}
+plot(survfit(Surv(Aids2$time, Aids2$newstatus)~1), col = c(4,2,2), ylab = 'Survival Probability', xlab = 'Survival Time in Years', lwd = 2, main = "Kaplan-Meier")
+```
+
+##Question 1: Is there siginificant evidence to say that men or women have a higher chance of surviving with AIDS? Can               we find a coefficient and confidence interval for the parameters? 
+
+```{r, fig.height = 4, echo = T}
+#plotting KM estimate based on sex
+plot(survfit(Surv(Aids2$time, Aids2$newstatus)~sex), ylab = 'Survival Probability', xlab = 'Survival Time in Years', col = c(4, 6), lwd = 2, main = "Kaplan-Meier based on Sex")
+legend("topright", legend = c("Male", "Female"), col = c(4,6), pch = 15)
+```
+
+As we can see from the graph, the lines intersect at a certain point which implies that there is no difference between the sexes. To prove this assumption, we must first see if the PH assumption is met through a log log plot of our estimator. If we see a parallel linear trend then we can assume that the PH assumption is met. From there we will then proceed with a Cox Proportional Hazard model to see if our assumption is correct. 
+
+```{r, fig.height = 4, echo = T}
+plot(survfit(Surv(Aids2$time, Aids2$newstatus)~sex), fun = "cloglog", ylab = 'log(-log(S(t)))',
+     xlab = 'Survival Time in Years', col = c(4, 6), lwd = 2, main = "Log-log Plot of Aids Survival Probability")
+legend("topright", legend = c("Male", "Female"), col = c(4,6), pch = 15)
+```
+
+From our log log plot we want to see the lines distance remain constant. In our case our estimators for Male and Female intsersect meaning that they do not fit the PH assumption. One reason for this could be due to the number of observations we have. We only have 89 observations for females and have 2754 for males. This could be significant but we should use a Likelihood Ratio test to determine its significance.
+
+```{r, echo = T}
+#calculating a p-value to see if there is a difference between sex
+summary(coxph(Surv(Aids2$time, Aids2$newstatus)~sex)) 
+survdiff(Surv(Aids2$time, Aids2$newstatus)~sex)
+#95% CI for beta
+c(0.1266 - 1.96*(0.1396), 0.1266 + 1.96*(0.1396))
+##So our 95% confidence for our estimation is (-0.147016, 0.400216).
+#95% CI for hazard rate
+exp(c(0.1266 - 1.96*(0.1396), 0.1266 + 1.96*(0.1396)))
+```
+
+Since both of these tests give a p-value greater than $\alpha$ = 0.05, we are able to conclude that there is no significant difference in survival probabilities between sexes. Our summary also gives us the hazard rate of males as 1.1349. This means that males’ hazrad rate increases by 13.49% compared to women. Basically this means that at any point in time, women have 13% higher chance of survival. Our 95% confidence interval for our $\beta$ estimate is (-0.147016, 0.400216). Meaning our hazard probability estimate = (0.8632802 1.4921470). Since this interval includes 1 our conclusion from the p-value was correct.
+
+\pagebreak
+
+##Question 2: Does the date of diagnosis affect survival probability?
+
+```{r, echo = T}
+#checking the middle point of diagnosis day
+(max(Aids2$diag) - min(Aids2$diag)) / 2
+#new column label A for before median date and B for after
+Aids2['EarlyLate'] <- c(0)
+#A = those diagnosed before 9902 and B = those diagnosed after
+Aids2$EarlyLate <- ifelse(Aids2$diag >= 8302 & Aids2$diag < 9902, 'A', 'B')
+#plotting KM estimate based on date of diagnosis
+plot(survfit(Surv(time, newstatus) ~ EarlyLate, data = Aids2), col = c(2,4), lwd = 2, xlab = "Time in Years", ylab = "Survival Probability", main = "KM Estimate based on Diagnosis Date") 
+legend("topright", legend = c("Diagnosed in First Half of Study", "Diagnosed in Second Half of Study"), col = c(2,4), pch = 15)
+summary(coxph(Surv(Aids2$time, Aids2$newstatus)~ Aids2$EarlyLate), data = Aids2) #95% CI for estimate
+c(-0.49277 - 1.96*(0.05759), -0.49277 + 1.96*(0.05759))
+#95% CI for hazard prob
+exp(c(-0.49277 - 1.96*(0.05759), -0.49277 + 1.96*(0.05759)))
+```
+
+In our analysis of patients diagnosed in the second half of the study, we can see that their survival probability increases. Unfortunately, we cannot say with certainty why this is, but we could suggest that this may have been due to better technology as time went on. In our earlier graph we can see that the number of people with AIDS has consistently increased. However, due to some factor, patients’ survival rates have increased. From our summary we find that our $\beta$ estimate = -0.49277. Meaning our 95% CI for $\beta$ = (-0.6056464, -0.3798936). By raising $e$ to our $\beta$ estimate we get a 95% CI for our hazard rate = (0.5457216, 0.683934). Since this interval does not include 1 we can safely conclude that there is a difference between the early and late group.
+
+## Question 3: What is the best fitting model for this dataset?
+
+```{r, echo = TRUE}
+reduced = coxph(Surv(time, newstatus)~1, data = Aids2)
+full = coxph(Surv(time, newstatus)~state+sex+T.categ+age, data = Aids2)
+step(reduced, scope = list(lower = reduced, upper = full))
+```
+
+The purpose of the AIC is to estimate the quaality of all the models compared to eachother. Thus, the lowest AIC value provides us with the best model. Using this, we are able to select our final model to include age and transmission categories as our covariates. 
+
+```{r, echo = T}
+final_model <- coxph(Surv(time, newstatus) ~ T.categ, data = Aids2)
+#checking if our PH assumptions are met
+cox.zph(final_model)
+##Since our PH assumptions are not met we should check our covariates' log log graph.
+#log log plot based on transmission category
+plot(survfit(Surv(time, newstatus) ~ T.categ, data = Aids2), col = c(2,4), lwd = 2, fun = "cloglog",
+     ylab = 'log(-log(S(t)))', xlab = 'Survival Time in Years', main = "Log-log Plot based on T.categ")
+```
+
+As we can see from these graphs our PH assumptions are clearly violated since their is non-parallel lines between the any of the different coviarate factors so a cox ph model isn't exactly the best model. Since our assumptions are not met we should stratify age so we estimate a baseline hazard function for the entire age category. 
+
+```{r}
+#stratifying state and getting p-value
+attach(Aids2)
+anova(coxph(Surv(time, newstatus)~strata(age)+T.categ))
+```
+
+By using a stratified model we can clearly see that certain transmission categories have a statistically significant effect on Aids survival probability. 
+
+## Question 4: Is there a significant difference between episode and sex from start to diagnosis and diagnosis to death?
+
+```{r Ihatethis, echo = T}
+#copying Aids2 dataset
+#first dataframe from 0 to diagnosis
+Aids_part1 <- Aids2[,]
+Aids_part1['start'] <- c(0)
+Aids_part1['stop'] <- Aids_part1$diag
+Aids_part1['episode'] <- c(1)
+#second dataframe from diagnosis to death
+Aids_part2 <- Aids2[,]
+Aids_part2$time <- Aids_part2$time * 365
+Aids_part2['start'] <- Aids_part2$diag
+Aids_part2['stop'] <- Aids_part2$death
+Aids_part2['episode'] <- c(2)
+#r binding both datasets into ONE dataframe
+new_aids <- rbind(Aids_part1, Aids_part2)
+new_aids$episode <- factor(new_aids$episode)
+#showing first 10 rows of our data
+head(new_aids)
+#showing last 10 rows of our data
+tail(new_aids)
+#our model from start stop to finish
+anova(coxph(Surv(start,stop,newstatus) ~ strata(episode) * sex, data = new_aids))
+```
+
+Since our p-value for interaction between episode and sex is 0.2129 we can say there is not a significant of hazaard raters between sexes from start to diagnosis and from diagnosis to death. This means that there wasn't a significant difference between sexes from birth to diagnosis date and from diagnosis date to death.
+
+```{r }
+#plot from time till death
+plot(survfit(Surv(death, newstatus) ~ sex, data = Aids2), ylab = 'Survival Probability', xlim = c(8000,12000),
+     xlab = 'Survival Time in Julian Date', col = c(2, 4), lwd = 2, main = "Probability of time till Death of Aids")
+legend("topright", legend = c("Male", "Female"), col = c(2,4), pch = 15)
+```
+
+This is a plot of the marginal model calculating the time from study entry to second event or death in this case. (Time started at 0 but we cut it off so we could actually see the ending of the graph clearly.)
+
+
+##Conclusion
+
+By first creating basic visualizations, we were able to see from our data that more people were diagnosed later on in the study than in the beginning and a simple kaplan meier estimate from our data. Then, by using a Cox Proportional Hazards model we were able to prove that there is no statistically significant difference in survival probabilities between the 2 sexes. In addition, we were able to split our data into two categories one for observations between 1982-1987 and the other from 1987-92 which showed us that patients diagnosed with AIDS in the second group had a high survival probabilty. Our greatest challenge with working on this dataset was the use of Julian dates which severely hindered us from trying to split our dataset by using time variate covariates instead of simply splitting the dataset into groups. Something we wish we had been able to add to our report was to plot a weibull distrubtion of those diagnosed after 1987, so that we are able to extend our survival probabibilty.
+
+##References
+
+Venables, W.N. and Ripley, B.D. (2002) Modern Applied Statistics with S. Fourth edition. Springer.
