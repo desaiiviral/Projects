@@ -1,6 +1,6 @@
 # Projects
 
-This repository is a collection of all past & present projects in my goal to be a top Data Scientist. The contents range from my first project with as little has ~100 lines of code all the way to bigger projects with 1k+. All in all its a way for me to measure my progress and document my growth.
+This repository is a collection of all past & present projects in my goal to be a top Data Scientist. The contents range from my first project with as little has ~100 lines of code all the way to bigger projects with 1000 lines. All in all its a way for me to measure my progress and document my growth. Below is a Table of Contents of all my projects from newest to oldest. 
 
 ## Table of Contents
 
@@ -14,3 +14,7 @@ This was a project done for my Statistical Data Analysis class where we were tas
 For this project I got to work with a small team of 4 to try to tackle a time series prediction. In this project I was able to use my deeper understanding of statistical knowledge such as training vs testing data sets and model selection to find a suitable SARIMA model.
 
 ### 4. AIDs Survival Prediction
+I have always had a passion for healthcare ever since I was able to do my senior capstone project on the high costs of healthcare in the United States in my senior year of high school. Ever since my project the health industry has always been something that I have kept a close eye on and being able to see how research is conducted on a statistical level was a unique experience. Here I used Cox-PH regression to calculate AIDs survival probabilities of patients.
+
+### 5. NBA PPG Prediction
+This was my first ever project and introduction to the data science world. Instead of working on traditional datasets such as Iris or mtcars I chose to start off with NBA ppg data and perform linear regression on the data on basketball-reference. This is especially important for me as this marks the beginning of my data science career and allows me to see just how far I have grown in just a year.
